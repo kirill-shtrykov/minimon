@@ -29,3 +29,9 @@ go.work.sum
 # VS Code
 .vscode/
 __debug_bin*
+
+# Config file
+config.yaml
+
+# Database
+database.sqlite

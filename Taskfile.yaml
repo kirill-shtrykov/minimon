@@ -1,0 +1,27 @@
+version: "3"
+
+tasks:
+  release:
+    deps:
+      - build
+      - compress
+  build:
+    desc: Build binary
+    cmds:
+      - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o build/minimon
+  compress:
+    desc: Compress binary to tarball
+    cmds:
+      - gzip -c build/minimon > build/minimon-$(cat VERSION).linux-amd64.gz
+  lint:
+    desc: Run linter
+    cmds:
+      - golangci-lint run --fix
+  migrate:
+    desc: Apply migrations to database
+    cmds:
+      - >
+        atlas schema apply \
+          --url "sqlite://database.sqlite" \
+          --to "file://internal/db/queries/schema.sql" \
+          --dev-url "sqlite://dev?mode=memory"

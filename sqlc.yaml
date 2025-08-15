@@ -1,0 +1,15 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: "internal/db/queries/"
+    schema: "internal/db/queries/schema.sql"
+    database:
+      uri: "sqlite://database.sqlite"
+    gen:
+      go:
+        package: "generated"
+        out: "internal/db/generated/"
+        overrides:
+          - column: "metric.date"
+            go_type:
+              type: "time.Time"
