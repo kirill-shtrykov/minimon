@@ -23,6 +23,7 @@ type Widget struct {
 	Title  string `yaml:"title"`
 	Width  int    `yaml:"width"`
 	Height int    `yaml:"height"`
+	Strict bool   `yaml:"strict"`
 }
 
 type Config struct {

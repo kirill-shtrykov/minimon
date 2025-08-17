@@ -144,11 +144,21 @@ func dateFromString(date string, def time.Time) time.Time {
 	return t
 }
 
+func boolFromString(raw string) bool {
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false
+	}
+
+	return b
+}
+
 type Widget struct {
 	Key    string `json:"key"`
 	Title  string `json:"title"`
 	Width  int    `json:"width"`
 	Height int    `json:"height"`
+	Strict bool   `json:"strict,omitempty"`
 }
 
 type Server struct {
@@ -183,8 +193,9 @@ func (s *Server) apiHandler(w http.ResponseWriter, r *http.Request) {
 	metric := r.PathValue("metric")
 	minDate := dateFromString(r.URL.Query().Get("min"), time.Now().Add(defaultMinTime))
 	maxDate := dateFromString(r.URL.Query().Get("max"), time.Now())
+	strict := boolFromString(r.URL.Query().Get("strict"))
 
-	readings, err := s.svc.Metric(r.Context(), metric, minDate, maxDate)
+	readings, err := s.svc.Metric(r.Context(), metric, minDate, maxDate, strict)
 	if err != nil {
 		log.ErrorContext(r.Context(), "failed to get readings", log.Any("error", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -256,6 +267,7 @@ func NewHTTPServer(svc *monitor.Service, cfg []conf.Widget) *Server {
 			Title:  w.Title,
 			Width:  w.Width,
 			Height: w.Height,
+			Strict: w.Strict,
 		}
 	}
 

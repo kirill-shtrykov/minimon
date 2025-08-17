@@ -21,6 +21,7 @@
 
 <body>
     <h2>MiniMon - lightweight monitoring utility</h2>
+    <div id="content"></div>
     <script type="text/javascript" src="uPlot.iife.min.js"></script>
     <script>
         function generateColors(n) {
@@ -39,10 +40,17 @@
                     container.style.display = "flex";
                     container.style.alignItems = "flex-start";
                     const chart = document.createElement("div");
-                    document.body.appendChild(container);
+                    const content = document.getElementById("content")
+                    content.appendChild(container);
                     container.appendChild(chart);
 
-                    fetch("/api/v1/metrics/" + encodeURIComponent(w.key))
+                    let url = new URL("/api/v1/metrics/" + encodeURIComponent(w.key), window.location.origin);
+
+                    if (w.strict) {
+                        url.searchParams.set("strict", "true");
+                    }
+
+                    fetch(url)
                         .then(res => res.json())
                         .then(data => {
                             const colors = generateColors(data.length - 1);

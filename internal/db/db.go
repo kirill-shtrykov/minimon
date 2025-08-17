@@ -20,9 +20,14 @@ func (r *Repo) Metric(
 	key string,
 	minDate time.Time,
 	maxDate time.Time,
+	strict bool,
 ) ([]generated.Metric, error) {
+	if !strict {
+		key = key + "%"
+	}
+
 	m, err := r.queries.Metric(ctx,
-		generated.MetricParams{Key: key + "%", MinDate: minDate, MaxDate: maxDate})
+		generated.MetricParams{Key: key, MinDate: minDate, MaxDate: maxDate})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get metric: %w", err)
 	}

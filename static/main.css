@@ -1,3 +1,9 @@
+#content {
+  display: grid;
+  grid-auto-flow: column; /* располагать элементы по колонкам */
+  gap: 10px;
+}
+
 .u-legend {
     margin-left: 5px;
     display: flex;
