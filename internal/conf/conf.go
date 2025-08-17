@@ -18,17 +18,17 @@ type Metric struct {
 	Type     string `yaml:"type,omitempty"`
 }
 
-type Graph struct {
-	Metrics []string `yaml:"metrics"`
-}
-
-type Dashboard struct {
-	Graphs []Graph `yaml:"graphs"`
+type Widget struct {
+	Key    string `yaml:"key"`
+	Title  string `yaml:"title"`
+	Width  int    `yaml:"width"`
+	Height int    `yaml:"height"`
 }
 
 type Config struct {
-	DB      SQLiteConfig `yaml:"db"`
-	Metrics []Metric     `yaml:"metrics"`
+	DB        SQLiteConfig `yaml:"db"`
+	Metrics   []Metric     `yaml:"metrics"`
+	Dashboard []Widget     `yaml:"dashboard"`
 }
 
 func LoadConfig(path string) (*Config, error) {

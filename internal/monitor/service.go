@@ -52,7 +52,7 @@ func (m *Metric) Handler() error {
 
 type Service struct {
 	repo    *db.Repo
-	metrics []*Metric
+	metrics []Metric
 }
 
 func (s *Service) CollectAndStore(ctx context.Context) {
@@ -73,7 +73,7 @@ func (s *Service) CollectAndStore(ctx context.Context) {
 	}
 }
 
-func (s *Service) collectMetric(ctx context.Context, metric *Metric) error {
+func (s *Service) collectMetric(ctx context.Context, metric Metric) error {
 	err := metric.Handler()
 	if err != nil {
 		return fmt.Errorf("failed to run handler: %w", err)
@@ -148,7 +148,7 @@ func (s *Service) Metric(ctx context.Context, key string, minDate time.Time, max
 }
 
 func New(repo *db.Repo, cfg []conf.Metric) (*Service, error) {
-	metrics := make([]*Metric, len(cfg))
+	metrics := make([]Metric, len(cfg))
 
 	for i, m := range cfg {
 		var h func(metric *Metric) error
@@ -160,7 +160,7 @@ func New(repo *db.Repo, cfg []conf.Metric) (*Service, error) {
 			return nil, fmt.Errorf("%w: %s", ErrUnsupportedMetricMethodError, m.Method)
 		}
 
-		metrics[i] = &Metric{
+		metrics[i] = Metric{
 			Key:         m.Key,
 			Type:        m.Type,
 			LastValue:   nil,

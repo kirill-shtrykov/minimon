@@ -6,10 +6,12 @@ import (
 	"fmt"
 	log "log/slog"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/kirill-shtrykov/minimon/internal/conf"
 	"github.com/kirill-shtrykov/minimon/internal/monitor"
 )
 
@@ -79,6 +81,60 @@ func newResponseBody(readings []monitor.Reading) ([]byte, error) {
 	return b, nil
 }
 
+func uPlotResponse(readings []monitor.Reading) ([]byte, error) {
+	timestampsMap := make(map[int64]struct{})
+	seriesMap := make(map[string]map[int64]any)
+
+	for _, r := range readings {
+		ts := r.Date.Unix()
+		timestampsMap[ts] = struct{}{}
+
+		if seriesMap[r.Key] == nil {
+			seriesMap[r.Key] = make(map[int64]any)
+		}
+
+		seriesMap[r.Key][ts] = r.Value
+	}
+
+	var timestamps []int64
+	for ts := range timestampsMap {
+		timestamps = append(timestamps, ts)
+	}
+	sort.Slice(timestamps, func(i, j int) bool { return timestamps[i] < timestamps[j] })
+
+	result := [][]any{}
+	xRow := make([]any, len(timestamps))
+	for i, ts := range timestamps {
+		xRow[i] = ts
+	}
+	result = append(result, xRow)
+
+	keys := make([]string, 0, len(seriesMap))
+	for k := range seriesMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		row := make([]any, len(timestamps))
+		for i, ts := range timestamps {
+			if v, ok := seriesMap[k][ts]; ok {
+				row[i] = v
+			} else {
+				row[i] = nil
+			}
+		}
+		result = append(result, row)
+	}
+
+	b, err := json.Marshal(result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal result: %w", err)
+	}
+
+	return b, nil
+}
+
 func dateFromString(date string, def time.Time) time.Time {
 	t, err := time.Parse(time.RFC3339, date)
 	if err != nil {
@@ -88,17 +144,29 @@ func dateFromString(date string, def time.Time) time.Time {
 	return t
 }
 
-type Server struct {
-	svc *monitor.Service
+type Widget struct {
+	Key    string `json:"key"`
+	Title  string `json:"title"`
+	Width  int    `json:"width"`
+	Height int    `json:"height"`
 }
 
-func (s *Server) rootHandler(w http.ResponseWriter, r *http.Request) {
+type Server struct {
+	svc       *monitor.Service
+	dashboard []Widget
+}
+
+func (s *Server) dashboardHandler(w http.ResponseWriter, r *http.Request) {
 	log.DebugContext(r.Context(), "request", "method", r.Method, "URI", r.RequestURI)
 
 	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
 
-	if _, err := w.Write([]byte("OK")); err != nil {
-		log.ErrorContext(r.Context(), "failed to write response body", log.Any("error", err))
+	if err := json.NewEncoder(w).Encode(s.dashboard); err != nil {
+		log.ErrorContext(r.Context(), "failed to marshal dashboard", log.Any("error", err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+
+		return
 	}
 }
 
@@ -124,7 +192,7 @@ func (s *Server) apiHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := newResponseBody(readings)
+	b, err := uPlotResponse(readings)
 	if err != nil {
 		log.ErrorContext(r.Context(), "failed to create response body", log.Any("error", err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
@@ -143,7 +211,8 @@ func (s *Server) apiHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) Run(ctx context.Context, addr string) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.rootHandler)
+	mux.Handle("/", http.FileServer(http.Dir("../../static")))
+	mux.HandleFunc("/dashboard", s.dashboardHandler)
 	mux.HandleFunc("/api/v1/metrics", s.apiHandler)
 	mux.HandleFunc("/api/v1/metrics/{metric}", s.apiHandler)
 
@@ -178,6 +247,17 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	return nil
 }
 
-func NewHTTPServer(svc *monitor.Service) *Server {
-	return &Server{svc: svc}
+func NewHTTPServer(svc *monitor.Service, cfg []conf.Widget) *Server {
+	dashboard := make([]Widget, len(cfg))
+
+	for i, w := range cfg {
+		dashboard[i] = Widget{
+			Key:    w.Key,
+			Title:  w.Title,
+			Width:  w.Width,
+			Height: w.Height,
+		}
+	}
+
+	return &Server{svc: svc, dashboard: dashboard}
 }

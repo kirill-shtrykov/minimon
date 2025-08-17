@@ -57,7 +57,7 @@ func run() int {
 		return 1
 	}
 
-	srv := app.NewHTTPServer(svc)
+	srv := app.NewHTTPServer(svc, cfg.Dashboard)
 
 	go func() {
 		if err := srv.Run(ctx, f.Addr); err != nil {

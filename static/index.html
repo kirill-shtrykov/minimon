@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>MiniMon - lightweight monitoring utility</title>
+    <link rel="stylesheet" type="text/css" href="uPlot.min.css">
+    <link rel="stylesheet" type="text/css" href="main.css">
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+
+        #chart {
+            width: 800px;
+            height: 400px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>MiniMon - lightweight monitoring utility</h2>
+    <script type="text/javascript" src="uPlot.iife.min.js"></script>
+    <script>
+        function generateColors(n) {
+            return Array.from({ length: n }, (_, i) =>
+                `hsl(${Math.round((360 / n) * i)}, 70%, 50%)`
+            );
+        }
+
+        fetch("/dashboard")
+            .then(res => res.json())
+            .then(widgets => {
+                for (const w of widgets) {
+                    const container = document.createElement("div");
+                    container.style.width = w.width + "px";
+                    container.style.height = w.height + "px";
+                    container.style.display = "flex";
+                    container.style.alignItems = "flex-start";
+                    const chart = document.createElement("div");
+                    document.body.appendChild(container);
+                    container.appendChild(chart);
+
+                    fetch("/api/v1/metrics/" + encodeURIComponent(w.key))
+                        .then(res => res.json())
+                        .then(data => {
+                            const colors = generateColors(data.length - 1);
+                            const u = new uPlot({
+                                title: w.title,
+                                width: w.width - 220,
+                                height: w.height,
+                                series: [
+                                    {}, // timestamps (x-axis)
+                                    ...Array.from({ length: data.length - 1 }, (_, i) => ({
+                                        label: `thread ${i}`,
+                                        stroke: colors[i],
+                                    }))
+                                ],
+                                axes: [
+                                    {
+                                        space: 40,
+                                        incrs: [
+                                            // minute divisors (# of secs)
+                                            1,
+                                            5,
+                                            10,
+                                            15,
+                                            30,
+                                            // hour divisors
+                                            60,
+                                            60 * 5,
+                                            60 * 10,
+                                            60 * 15,
+                                            60 * 30,
+                                            // day divisors
+                                            3600,
+                                            // ...
+                                        ],
+                                        // [0]:   minimum num secs in found axis split (tick incr)
+                                        // [1]:   default tick format
+                                        // [2-7]: rollover tick formats
+                                        // [8]:   mode: 0: replace [1] -> [2-7], 1: concat [1] + [2-7]
+                                        values: [
+                                            // tick incr default year month day hour min sec mode
+                                            [3600 * 24 * 365, "{YYYY}", null, null, null, null, null, null, 1],
+                                            [3600 * 24 * 28, "{MMM}", "\n{YYYY}", null, null, null, null, null, 1],
+                                            [3600 * 24, "{DD}/{MM}", "\n{YYYY}", null, null, null, null, null, 1],
+                                            [3600, "{HH}", "\n{D}/{M}/{YY}", null, "\n{D}/{M}", null, null, null, 1],
+                                            [60, "{HH}:{mm}", "\n{D}/{M}/{YY}", null, "\n{D}/{M}", null, null, null, 1],
+                                            [1, ":{ss}", "\n{D}/{M}/{YY} {HH}:{mm}", null, "\n{D}/{M} {HH}:{mm}", null, "\n{HH}:{mm}", null, 1],
+                                            [0.001, ":{ss}.{fff}", "\n{D}/{M}/{YY} {HH}:{mm}", null, "\n{D}/{M} {HH}:{mm}", null, "\n{HH}:{mm}", null, 1],
+                                        ],
+                                    }
+                                ],
+                            }, data, chart);
+                            const legend = u.root.querySelector(".u-legend");
+                            legend.style.maxHeight = w.height + "px";
+                            container.appendChild(legend);
+                        });
+
+                }
+            });
+    </script>
+</body>
+
+</html>
